@@ -1,0 +1,13 @@
+# Cookies del navegador (contienen tokens de sesion, NO subir a GitHub)
+cookies.txt
+
+# Cache de Python
+__pycache__/
+*.pyc
+
+# Archivos descargados
+Facebook/
+YouTube/
+TikTok/
+Instagram/
+X/
