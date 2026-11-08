@@ -5,8 +5,26 @@ const videosDetectados = new Map(); // url -> {url, tipo, hora}
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (!msg || msg.type !== "YODL_DESCARGAR") return;
-  const { url, filename } = msg;
 
+  // blob: convertido a data URL por content.js
+  if (msg.dataUrl) {
+    const { dataUrl, filename } = msg;
+    const bytes = atob(dataUrl.split(",")[1]);
+    const arr = new Uint8Array(bytes.length);
+    for (let i = 0; i < bytes.length; i++) arr[i] = bytes.charCodeAt(i);
+    const blob = new Blob([arr], { type: msg.mime || "video/mp4" });
+    const objUrl = URL.createObjectURL(blob);
+    chrome.downloads
+      .download({ url: objUrl, filename: filename || `video_${Date.now()}.mp4`, saveAs: false })
+      .then(() => {
+        URL.revokeObjectURL(objUrl);
+        sendResponse({ ok: true });
+      })
+      .catch((e) => sendResponse({ ok: false, error: String(e) }));
+    return true;
+  }
+
+  const { url, filename } = msg;
   const ext = (filename || "").split(".").pop()?.toLowerCase() || "mp4";
   const nombre = filename || `video_${Date.now()}.${ext}`;
 
@@ -33,11 +51,15 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   return true;
 });
 
-// Capturar peticiones de red que parezcan video
+// Capturar peticiones de red que parezcan video (filtro estricto: solo medios reales)
 function esVideo(url, tipo) {
   if (tipo === "media") return true;
   const u = (url || "").toLowerCase();
-  return /\.mp4|\.m3u8|video|videoplayback|\.dash|\/hls\//.test(u);
+  // extensiones reales de video/audio
+  if (/(?:^|[^a-z0-9])(?:\.mp4|\.m4v|\.webm|\.mkv|\.mov|\.avi|\.ts|\.m4a|\.mp3|\.mpd|\.m3u8)(?:$|[?#&])/.test(u)) return true;
+  // patterns conocidos de streaming
+  if (/\/videoplayback|\/blob\?|\/hls\/|\/dash\//.test(u)) return true;
+  return false;
 }
 
 chrome.webRequest.onBeforeRequest.addListener(

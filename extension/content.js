@@ -29,13 +29,30 @@
       lista.push({ url: limpia, tipo, tag: contenedor });
     }
 
+    function videosDe(raiz) {
+      return raiz.querySelectorAll("video");
+    }
+
+    // (A) video dentro del visor de stories/visitor dialog (prioridad)
+    const viewer = document.querySelector("#viewer_dialog, [data-testviewer='dialog'], [role='dialog']");
+    if (viewer) {
+      videosDe(viewer).forEach((v) => {
+        const fuentes = [v.currentSrc, v.src, ...Array.from(v.querySelectorAll("source")).map((s) => s.src)];
+        fuentes.forEach((f) => {
+          if (!f) return;
+          agregar(f, f.startsWith("blob:") ? "story(blob)" : "story", v);
+        });
+      });
+    }
+
+    // (B) todos los video de la página
     document.querySelectorAll("video").forEach((v) => {
       const fuentes = [
         v.currentSrc,
         v.src,
         ...Array.from(v.querySelectorAll("source")).map((s) => s.src || s.srcset?.split(",")[0]?.trim().split(" ")[0]),
       ];
-      fuentes.forEach((f) => f && agregar(f, "video", v));
+      fuentes.forEach((f) => f && agregar(f, f.startsWith("blob:") ? "video(blob)" : "video", v));
     });
 
     // iframes del mismo origen
@@ -86,6 +103,25 @@
   chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     if (msg && msg.type === "YODL_PEDIR_VIDEOS") {
       sendResponse({ videos: recolectarVideos() });
+      return;
+    }
+    // descargar un blob: convirtiéndolo a data URL
+    if (msg && msg.type === "YODL_BLOB") {
+      capturarBlob(msg.url, msg.filename)
+        .then((dato) => sendResponse({ ok: true, ...dato }))
+        .catch((e) => sendResponse({ ok: false, error: String(e) }));
+      return true;
     }
   });
+
+  async function capturarBlob(blobUrl, filename) {
+    const resp = await fetch(blobUrl);
+    const blob = await resp.blob();
+    return await new Promise((resolve, reject) => {
+      const fr = new FileReader();
+      fr.onload = () => resolve({ dataUrl: fr.result, type: blob.type, filename });
+      fr.onerror = () => reject(fr.error);
+      fr.readAsDataURL(blob);
+    });
+  }
 })();

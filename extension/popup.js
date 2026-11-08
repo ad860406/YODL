@@ -24,6 +24,10 @@ function render(videos) {
     list.innerHTML = '<div class="empty">No se detectaron videos aún.<br>Reproduce el video en la página.</div>';
     return;
   }
+  // prioridad: story real > video > network (evitar ruido de red)
+  const peso = (t) =>
+    (t || "").includes("story") ? 0 : (t || "").includes("video") || (t || "").includes("og") ? 1 : 2;
+  videos.sort((a, b) => peso(a.tipo) - peso(b.tipo));
   foot.textContent = videos.length + (videos.length === 1 ? " video detectado" : " videos detectados");
   list.innerHTML = "";
   videos.forEach((v) => {
@@ -32,15 +36,37 @@ function render(videos) {
     const host = (() => {
       try { return new URL(v.url).hostname; } catch { return ""; }
     })();
+    const blobTag = v.url.startsWith("blob:") ? '<span class="tag" style="background:#322;color:#ffd08f">blob</span>' : "";
     card.innerHTML = `
-      <span class="tag">${host}</span><span>${v.tipo || "video"}</span>
+      <span class="tag">${host}</span><span>${v.tipo || "video"}</span>${blobTag}
       <div class="url">${v.url}</div>
       <div class="btns">
         <button class="b-video" data-act="descargar">Descargar MP4</button>
         <button class="b-audio" data-act="mp3">Enviar MP3 a YODL</button>
       </div>`;
     card.querySelector('[data-act="descargar"]').addEventListener("click", () => {
-      avisar("Descargando...");
+      avisar("Preparando descarga...");
+      if (v.url.startsWith("blob:")) {
+        // convertirlo a data URL en la página y luego descargar
+        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+          const tab = tabs[0];
+          if (!tab || !tab.id) return;
+          chrome.tabs.sendMessage(tab.id, { type: "YODL_BLOB", url: v.url, filename: nombreDesdeUrl(v.url) }, (r) => {
+            if (r && r.ok && r.dataUrl) {
+              chrome.runtime.sendMessage(
+                { type: "YODL_DESCARGAR", dataUrl: r.dataUrl, filename: r.filename || "video.mp4", mime: r.type },
+                (resp) => {
+                  if (resp && resp.ok) avisar("✅ Descarga (blob) iniciada.");
+                  else avisar("❌ Error blob: " + (resp?.error || ""), true);
+                }
+              );
+            } else {
+              avisar("❌ No se pudo leer el blob: " + (r?.error || ""), true);
+            }
+          });
+        });
+        return;
+      }
       chrome.runtime.sendMessage({ type: "YODL_DESCARGAR", url: v.url, filename: nombreDesdeUrl(v.url) }, (r) => {
         if (r && r.ok) avisar("✅ Descarga iniciada.");
         else avisar("❌ Error: " + (r?.error || ""), true);
