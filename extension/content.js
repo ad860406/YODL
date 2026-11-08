@@ -252,15 +252,29 @@
       }
     }
     if (!stream) throw new Error("Sin captureStream");
-    const mp4 = MediaRecorder.isTypeSupported("video/mp4");
-    grabandoTipo = mp4 ? "video/mp4" : "video/webm";
-    const opciones = mp4 ? { mimeType: "video/mp4" } : undefined;
+    // WEBM por defecto: MediaRecorder lo graba con indice completo y siempre es
+    // adelantable/buscar en cualquier reproductor. MP4 fragmentado no lo permite.
+    const tipos = [
+      "video/webm;codecs=vp9,opus",
+      "video/webm;codecs=vp8,opus",
+      "video/webm",
+      "video/mp4",
+    ];
+    let opciones = undefined;
+    for (const t of tipos) {
+      if (MediaRecorder.isTypeSupported(t)) {
+        opciones = { mimeType: t };
+        break;
+      }
+    }
+    grabandoTipo = (opciones && opciones.mimeType) || "video/webm";
     grabador = new MediaRecorder(stream, opciones);
     const chunks = [];
+    let mimeFinal = grabandoTipo;
     grabador.ondataavailable = (e) => e.data.size && chunks.push(e.data);
     grabador.onstop = () => {
-      const blob = new Blob(chunks, { type: grabandoTipo });
-      const ext = grabandoTipo.includes("webm") ? "webm" : "mp4";
+      const blob = new Blob(chunks, { type: mimeFinal });
+      const ext = mimeFinal.includes("mp4") ? "mp4" : "webm";
       descargarBlobLocal(blob, "video_grabado." + ext);
       grabador = null;
     };
