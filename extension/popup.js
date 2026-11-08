@@ -42,8 +42,12 @@ function render(videos) {
       <div class="url">${v.url}</div>
       <div class="btns">
         <button class="b-video" data-act="descargar">Descargar MP4</button>
-        <button class="b-audio" data-act="mp3">Enviar MP3 a YODL</button>
+        <button class="b-audio" data-act="mp3">MP3 → YODL</button>
+        <button class="b-copy" data-act="copiar">Copiar URL</button>
       </div>`;
+    card.querySelector('[data-act="copiar"]').addEventListener("click", () => {
+      navigator.clipboard.writeText(v.url).then(() => avisar("✅ URL copiada."));
+    });
     card.querySelector('[data-act="descargar"]').addEventListener("click", () => {
       avisar("Preparando descarga...");
       if (v.url.startsWith("blob:")) {
@@ -111,3 +115,23 @@ function actualizar() {
 
 actualizar();
 setInterval(actualizar, 2000);
+
+// Botón: traer el video que se está reproduciendo y copiar su URL real
+document.getElementById("btnActivo").addEventListener("click", () => {
+  chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+    const tab = tabs[0];
+    if (!tab || !tab.id) return;
+    chrome.tabs.sendMessage(tab.id, { type: "YODL_ACTIVO" }, (resp) => {
+      if (chrome.runtime.lastError || !resp || !resp.video) {
+        avisar("No se encontró un <video> en reproducción.", true);
+        return;
+      }
+      const url = resp.video.currentSrc || resp.video.src;
+      if (!url) { avisar("El video no tiene URL visible (posible blob/DRM).", true); return; }
+      navigator.clipboard.writeText(url).then(() => {
+        avisar("✅ URL del video en reproducción copiada.");
+        actualizar();
+      });
+    });
+  });
+});

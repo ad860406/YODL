@@ -105,6 +105,20 @@
       sendResponse({ videos: recolectarVideos() });
       return;
     }
+    // devolver la URL del <video> que se está reproduciendo
+    if (msg && msg.type === "YODL_ACTIVO") {
+      const videos = document.querySelectorAll("video");
+      let mejor = null;
+      videos.forEach((v) => {
+        if (mejor) return;
+        const tocando = !v.paused && v.currentTime > 0 && !v.ended;
+        if ((tocando || !v.paused) && (v.currentSrc || v.src)) {
+          mejor = v;
+        }
+      });
+      sendResponse({ video: mejor ? { currentSrc: mejor.currentSrc || mejor.src, src: mejor.src } : null });
+      return;
+    }
     // descargar un blob: convirtiéndolo a data URL
     if (msg && msg.type === "YODL_BLOB") {
       capturarBlob(msg.url, msg.filename)
