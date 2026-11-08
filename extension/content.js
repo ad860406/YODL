@@ -128,7 +128,16 @@
     }
     // grabar en vivo el <video> que se reproduce (para contenido MSE/blob sin URL directa)
     if (msg && (msg.type === "YODL_REC_START" || msg.type === "YODL_REC_STOP")) {
-      manejarGrabacion(msg.type === "YODL_REC_START", msg.filename);
+      if (msg.type === "YODL_REC_STOP") {
+        if (grabador) grabador.stop();
+      } else {
+        try {
+          crearBotonFloat();
+          tratarIniciar(buscarVideoRelevante());
+        } catch (e) {
+          /* el botón flotante avisa el error */
+        }
+      }
       sendResponse({ ok: true });
     }
   });
@@ -137,56 +146,125 @@
   let grabador = null;
   let fuenteStream = null;
   let grabandoTipo = "video/mp4";
+  let botonFloat = null;
+  let videoActual = null;
 
-  async function manejarGrabacion(iniciar, filename) {
-    if (iniciar) {
-      if (grabador) return;
-      const video = buscarVideoActivo();
-      if (!video) throw new Error("No hay video en reproducción.");
-      try {
-        if (video.captureStream) {
-          fuenteStream = typeof video.captureStream === "function" ? video.captureStream() : video.webkitCaptureStream();
-        } else {
-          throw new Error("captureStream no soportado");
-        }
-        // el stream puede venir sin audio en algunos casos
-        const mimetype = "video/mp4;codecs=avc1.42E01E,mp4a.40.2";
-        grabandoTipo = MediaRecorder.isTypeSupported("video/mp4") ? "video/mp4" : "video/webm";
-        const opciones = { mimeType: MediaRecorder.isTypeSupported("video/mp4") ? "video/mp4" : undefined };
-        grabador = new MediaRecorder(fuenteStream, opciones);
-        const chunks = [];
-        grabador.ondataavailable = (e) => e.data.size && chunks.push(e.data);
-        grabador.onstop = () => {
-          const blob = new Blob(chunks, { type: grabandoTipo });
-          const ext = grabandoTipo.includes("webm") ? "webm" : "mp4";
-          descargarBlobLocal(blob, (filename || `video_grabado`).replace(/\.[^.]+$/, "") + "." + ext);
-          grabador = null;
-        };
-        grabador.start(500);
-        return true;
-      } catch (e) {
-        throw e;
+  function crearBotonFloat() {
+    if (botonFloat) return;
+    botonFloat = document.createElement("div");
+    botonFloat.textContent = "● GRABAR";
+    botonFloat.setAttribute("data-yodl", "1");
+    Object.assign(botonFloat.style, {
+      position: "fixed",
+      zIndex: "2147483647",
+      background: "#d93025",
+      color: "#fff",
+      font: "600 13px system-ui, sans-serif",
+      padding: "8px 14px",
+      borderRadius: "999px",
+      cursor: "pointer",
+      boxShadow: "0 2px 10px rgba(0,0,0,.4)",
+      userSelect: "none",
+      display: "none",
+    });
+    botonFloat.addEventListener("mouseenter", () => (botonFloat.style.opacity = "1"));
+    botonFloat.addEventListener("mouseleave", () => (botonFloat.style.opacity = "0.6"));
+    botonFloat.addEventListener("click", (e) => {
+      e.stopPropagation();
+      if (grabador) {
+        grabador.stop();
+        botonFloat.textContent = "● GRABAR";
+        botonFloat.style.background = "#d93025";
+      } else {
+        tratarIniciar(videoActual || buscarVideoActivo());
       }
+    });
+    document.documentElement.appendChild(botonFloat);
+  }
+
+  function posicionarBoton(video) {
+    if (!botonFloat || !video) return;
+    const r = video.getBoundingClientRect();
+    if (r.width === 0 && r.height === 0) {
+      botonFloat.style.display = "none";
+      return;
+    }
+    Object.assign(botonFloat.style, {
+      display: "block",
+      top: Math.max(8, r.top + 8) + "px",
+      left: Math.max(8, r.right - 140) + "px",
+    });
+  }
+
+  function buscarVideoRelevante() {
+    const videos = document.querySelectorAll("video");
+    // el que está tocando o visible (más grande)
+    let mejorActivo = null;
+    videos.forEach((v) => {
+      if (!v.paused && v.currentTime > 0 && !v.ended) mejorActivo = v;
+    });
+    if (mejorActivo) return mejorActivo;
+    let maxArea = 0;
+    let grande = null;
+    videos.forEach((v) => {
+      const r = v.getBoundingClientRect();
+      const area = r.width * r.height;
+      if (area > maxArea) { maxArea = area; grande = v; }
+    });
+    return grande;
+  }
+
+  // vigilar y reposicionar el botón sobre el video visible
+  setInterval(() => {
+    if (grabador) return; // mientras graba, mantener donde está
+    crearBotonFloat();
+    const v = buscarVideoRelevante();
+    videoActual = v;
+    if (v) {
+      posicionarBoton(v);
+      v.addEventListener &&
+        v.addEventListener("scroll", () => posicionarBoton(v), { passive: true });
     } else {
-      if (grabador) grabador.stop();
-      return true;
+      botonFloat.style.display = "none";
+    }
+  }, 1200);
+
+  async function tratarIniciar(video) {
+    if (!video) return;
+    try {
+      iniciarGrabacion(video);
+      botonFloat.textContent = "■ DETENER";
+      botonFloat.style.background = "#1a73e8";
+    } catch (e) {
+      botonFloat.textContent = "⛔ " + e.message;
+      setTimeout(() => (botonFloat.textContent = "● GRABAR"), 2500);
     }
   }
 
-  function buscarVideoActivo() {
-    // el video con más tiempo reproducido / el que está tocando
-    let mejor = null;
-    let mayor = -1;
-    document.querySelectorAll("video").forEach((v) => {
-      const tocando = !v.paused && v.currentTime > 0 && !v.ended && v.currentTime > mayor;
-      if (tocando) { mejor = v; mayor = v.currentTime; }
-    });
-    if (!mejor) {
-      document.querySelectorAll("video").forEach((v) => {
-        if (v.currentTime > mayor) { mejor = v; mayor = v.currentTime; }
-      });
+  async function iniciarGrabacion(video) {
+    if (grabador) return;
+    let stream;
+    if (video.captureStream) {
+      try {
+        stream = video.captureStream();
+      } catch {
+        stream = video.webkitCaptureStream();
+      }
     }
-    return mejor;
+    if (!stream) throw new Error("Sin captureStream");
+    const mp4 = MediaRecorder.isTypeSupported("video/mp4");
+    grabandoTipo = mp4 ? "video/mp4" : "video/webm";
+    const opciones = mp4 ? { mimeType: "video/mp4" } : undefined;
+    grabador = new MediaRecorder(stream, opciones);
+    const chunks = [];
+    grabador.ondataavailable = (e) => e.data.size && chunks.push(e.data);
+    grabador.onstop = () => {
+      const blob = new Blob(chunks, { type: grabandoTipo });
+      const ext = grabandoTipo.includes("webm") ? "webm" : "mp4";
+      descargarBlobLocal(blob, "video_grabado." + ext);
+      grabador = null;
+    };
+    grabador.start(500);
   }
 
   function descargarBlobLocal(blob, nombre) {
