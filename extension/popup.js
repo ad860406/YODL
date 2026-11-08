@@ -135,3 +135,20 @@ document.getElementById("btnActivo").addEventListener("click", () => {
     });
   });
 });
+
+// Botón grabar/detener el video en pantalla
+let recBtnOn = false;
+const btnRec = document.getElementById("btnRec");
+btnRec.addEventListener("click", () => {
+  chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+    const tab = tabs[0];
+    if (!tab || !tab.id) return;
+    const tipo = recBtnOn ? "YODL_REC_STOP" : "YODL_REC_START";
+    chrome.tabs.sendMessage(tab.id, { type: tipo, filename: "video_grabado" }, (resp) => {
+      if (chrome.runtime.lastError) { avisar("No se pudo grabar en esta página.", true); return; }
+      recBtnOn = !recBtnOn;
+      btnRec.textContent = recBtnOn ? "■ Detener grabación" : "● Grabar video";
+      avisar(recBtnOn ? "● Grabando... deja avanzar el video." : "✅ Grabación guardada.");
+    });
+  });
+});
