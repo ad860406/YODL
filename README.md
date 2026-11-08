@@ -2,6 +2,8 @@
 
 Descarga **audio (MP3)** y **video (MP4)** de varias redes sociales desde una interfaz web local. Solo pegas los enlaces, elige el tipo de descarga y el servidor se encarga del resto: detecta la red social y guarda cada archivo en su carpeta, con descargas en cola y progreso en tiempo real.
 
+Incluye además una **extensión de Chrome** que detecta los videos visibles en la página y los descarga usando tu sesión iniciada (resuelve contenido que yt-dlp no puede extraer, como las Stories de Facebook).
+
 ## Redes sociales soportadas
 
 | Red social | Carpeta |
@@ -55,6 +57,21 @@ python servidor.py 8080
 4. Los archivos aparecen en las carpetas de su red social.
 
 Desde otra PC de la misma red puedes usar `http://IP_DE_ESTA_PC:8080` (el servidor muestra la IP al arrancar).
+
+## Extensión de Chrome
+
+Para contenido que solo es visible dentro de tu sesión (por ejemplo **Stories de Facebook**, que expiran y requieren login), la extensión `extension/` detecta el video en la página y lo descarga con tus cookies.
+
+**Instalación:**
+1. Abre `chrome://extensions`.
+2. Activa **Modo de desarrollador** (esquina superior derecha).
+3. Clic en **Cargar descomprimida** y selecciona la carpeta `extension/` del proyecto.
+4. Ve a la página con el video (la historia Facebook, un reel, etc.) y ábrela para que se reproduzca.
+5. Clic en el icono de YODL → verás los videos detectados:
+   - **Descargar MP4**: lo baja directo a tu carpeta de Descargas con tu sesión.
+   - **Enviar MP3 a YODL**: lo agrega a la cola del servidor (necesita el servidor iniciado).
+
+> Nota: la extensión solo detecta videos con URL directa (`<video src>`). Si el video usa `blob:`/DRM no aparecerá.
 
 ## Cookies de YouTube (recomendado)
 

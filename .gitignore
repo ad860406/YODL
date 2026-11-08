@@ -1,5 +1,6 @@
 # Cookies del navegador (contienen tokens de sesion, NO subir a GitHub)
 cookies.txt
+cookies_*.txt
 
 # Cache de Python
 __pycache__/

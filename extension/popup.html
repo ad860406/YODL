@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<style>
+:root{--bg:#0f1115;--card:#1a1d24;--border:#2a2f3a;--text:#e6e8ee;--muted:#9aa1b0;--accent:#4f8cff;--ok:#2ecc71;--err:#ff5c5c}
+*{box-sizing:border-box;margin:0;padding:0}
+body{width:340px;font-family:system-ui,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:var(--text);padding:12px;font-size:13px}
+h1{font-size:15px;margin-bottom:2px;display:flex;align-items:center;gap:6px}
+.sub{color:var(--muted);font-size:11px;margin-bottom:10px}
+.list{max-height:280px;overflow-y:auto;display:flex;flex-direction:column;gap:8px}
+.video{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:8px}
+.video .url{color:var(--muted);font-size:10px;word-break:break-all;margin:4px 0}
+.video .tag{display:inline-block;background:#223;color:#8fd3ff;border-radius:4px;padding:1px 6px;font-size:10px;margin-right:6px}
+.btns{display:flex;gap:6px;margin-top:6px}
+button{flex:1;border:none;border-radius:6px;padding:7px;font-size:12px;cursor:pointer;font-weight:600}
+.b-video{background:var(--accent);color:#fff}
+.b-audio{background:#223;color:#8fd3ff;border:1px solid #3a5c80}
+.empty{color:var(--muted);text-align:center;padding:20px;font-size:12px}
+.msg{color:var(--ok);font-size:11px;margin-top:8px;text-align:center}
+.msg.err{color:var(--err)}
+.foot{color:var(--muted);font-size:10px;text-align:center;margin-top:10px}
+</style>
+</head>
+<body>
+<h1>📥 YODL</h1>
+<div class="sub">Videos detectados en esta pestaña</div>
+<div class="list" id="list"><div class="empty">No se detectaron videos aún.<br>Ten el video visible mientras se reproduce.</div></div>
+<div class="msg" id="msg"></div>
+<div class="foot" id="foot"></div>
+<script src="popup.js"></script>
+</body>
+</html>

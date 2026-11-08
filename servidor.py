@@ -166,10 +166,10 @@ class Cola:
             "no_warnings": True,
         }
 
-        br = navegador_usable()
-        if br:
-            opts["cookiesfrombrowser"] = (br, None, None, None)
-        archivo_cookies = os.path.join(BASE, "cookies.txt")
+        # Cookies por red: cookies_<Red>.txt (p.ej. cookies_Facebook.txt) o cookies.txt generico
+        archivo_cookies = os.path.join(BASE, f"cookies_{job['red']}.txt")
+        if not os.path.exists(archivo_cookies):
+            archivo_cookies = os.path.join(BASE, "cookies.txt")
         if os.path.exists(archivo_cookies):
             opts["cookiefile"] = archivo_cookies
         ruta_deno = _ruta_deno()
