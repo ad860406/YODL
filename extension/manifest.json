@@ -3,7 +3,7 @@
   "name": "YODL - Descargar video/audio",
   "version": "1.0.0",
   "description": "Detecta videos en la pagina actual y los descarga con tu sesion iniciada (resuelve Stories, Reels, etc.).",
-  "permissions": ["downloads", "activeTab", "scripting"],
+  "permissions": ["downloads", "activeTab", "scripting", "webRequest"],
   "host_permissions": ["<all_urls>", "http://127.0.0.1:8790/*", "http://localhost:8790/*"],
   "action": {
     "default_popup": "popup.html",

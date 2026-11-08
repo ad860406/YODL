@@ -21,7 +21,7 @@ function nombreDesdeUrl(url) {
 
 function render(videos) {
   if (!videos || !videos.length) {
-    list.innerHTML = '<div class="empty">No se detectaron videos aún.<br>Ten el video visible mientras se reproduce.</div>';
+    list.innerHTML = '<div class="empty">No se detectaron videos aún.<br>Reproduce el video en la página.</div>';
     return;
   }
   foot.textContent = videos.length + (videos.length === 1 ? " video detectado" : " videos detectados");
@@ -58,23 +58,27 @@ function render(videos) {
 }
 
 function actualizar() {
+  // 1) videos del content script (elementos <video>)
   chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
     const tab = tabs[0];
     if (!tab || !tab.id) return;
-    // envía mensaje al content script para pedir la lista actual
     chrome.tabs.sendMessage(tab.id, { type: "YODL_PEDIR_VIDEOS" }, (resp) => {
       if (chrome.runtime.lastError) {
-        // sin content script; intentar inyección
         chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ["content.js"] }, () => {
           if (chrome.runtime.lastError) {
-            list.innerHTML = '<div class="empty">Esta página no permite inyección.</div>';
-            return;
+            // sin permiso en la página: usar solo la lista de red
           }
-          setTimeout(actualizar, 300);
         });
         return;
       }
-      render(resp && resp.videos);
+      // 2) videos capturados por la red (webRequest)
+      chrome.runtime.sendMessage({ type: "YODL_RED" }, (resp2) => {
+        const unificar = [];
+        const seen = new Set();
+        (resp2?.videos || []).forEach((v) => { unificar.push(v); seen.add(v.url); });
+        (resp?.videos || []).forEach((v) => { if (!seen.has(v.url)) unificar.push(v); });
+        render(unificar);
+      });
     });
   });
 }

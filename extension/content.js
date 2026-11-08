@@ -38,6 +38,26 @@
       fuentes.forEach((f) => f && agregar(f, "video", v));
     });
 
+    // iframes del mismo origen
+    document.querySelectorAll("iframe").forEach((iv) => {
+      try {
+        if (!iv.contentDocument) return;
+        iv.contentDocument.querySelectorAll("video").forEach((v) => {
+          const fuentes = [v.currentSrc, v.src, ...Array.from(v.querySelectorAll("source")).map((s) => s.src)];
+          fuentes.forEach((f) => f && agregar(f, "video(iframe)", v));
+        });
+      } catch (e) {
+        /* cross-origin: skip */
+      }
+    });
+
+    // entradas de rendimiento (recursos que ya se descargaron)
+    try {
+      performance.getEntriesByType("resource").forEach((e) => {
+        if (/\.mp4|\.m3u8|video|videoplayback/i.test(e.name)) agregar(e.name, "network", null);
+      });
+    } catch (e) {}
+
     // <a href="...mp4"> o <meta og:video>
     document.querySelectorAll('meta[property="og:video"], meta[property="og:video:url"], meta[property="og:video:secure_url"]').forEach((m) =>
       agregar(m.content, "og:video", m)
